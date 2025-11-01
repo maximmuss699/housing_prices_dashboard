@@ -1,11 +1,11 @@
 import os
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 
-from .auth import require_token
+from .auth import require_token, issue_jwt
 from .model_runtime import runtime
 from .rate_limit import FixedWindowLimiter, limiter_dependency_factory
-from .schemas import PredictionInput, PredictionOutput
+from .schemas import PredictionInput, PredictionOutput, TokenRequest, TokenResponse
 
 # Rate limiting configuration
 RATE_LIMIT_MAX = int(os.getenv("RATE_LIMIT_MAX", "30"))
@@ -31,6 +31,19 @@ app.add_middleware(
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
+
+# Testing endpoint to issue JWT tokens
+# Requires client credentials via env vars
+@app.post("/token", response_model=TokenResponse)
+def token(req: TokenRequest) -> TokenResponse:
+    # Minimal credential check via env vars
+    cid = os.getenv("CLIENT_ID")
+    csec = os.getenv("CLIENT_SECRET")
+    if not cid or not csec or req.client_id != cid or req.client_secret != csec:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid client credentials")
+    ttl = int(os.getenv("JWT_TTL_SECONDS", "900"))
+    access_token = issue_jwt(subject=req.client_id)
+    return TokenResponse(access_token=access_token, expires_in=ttl)
 
 # Rate-limited dependency
 # Applies rate limiting based on bearer token

@@ -16,3 +16,13 @@ class PredictionInput(BaseModel):
 class PredictionOutput(BaseModel):
     prediction: float
 
+
+class TokenRequest(BaseModel):
+    client_id: str
+    client_secret: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int
