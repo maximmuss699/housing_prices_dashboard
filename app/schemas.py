@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 
 # Pydantic schema for input data validation
 class PredictionInput(BaseModel):
@@ -26,3 +26,17 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     expires_in: int
+
+
+# Pydantic schema for user creation and output
+# ! min length password == 6
+class UserCreate(BaseModel):
+    email: EmailStr
+    password: str = Field(
+        ..., min_length=8, description="Password at least 8 characters"
+    )
+
+
+class UserOut(BaseModel):
+    id: int
+    email: EmailStr

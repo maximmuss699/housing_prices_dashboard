@@ -87,13 +87,25 @@ def require_token(request: Request, creds: HTTPAuthorizationCredentials = Depend
     # Validate presence and scheme of credentials
     if not creds or creds.scheme.lower() != "bearer":
         _audit_fail(request, "missing_bearer")
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing bearer token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "missing_bearer", "message": "Missing bearer token"},
+        )
 
     # Validate JWT token
     raw = creds.credentials
     payload = _verify_jwt(raw)
     if not payload:
         _audit_fail(request, "invalid_jwt")
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "invalid_token", "message": "Invalid token"},
+        )
     subject = str(payload.get("sub", "anonymous"))
-    return f"jwt:{subject}"
+    # Attach to request state for downstream logging/usage
+    try:
+        request.state.user_id = subject
+    except Exception:
+        pass
+    # Return a limiter key; rate limit per-user
+    return f"user:{subject}"
