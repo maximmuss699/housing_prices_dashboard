@@ -24,9 +24,10 @@ from .schemas import (
     TokenResponse,
     UserCreate,
     UserOut,
+    PredictionRecord,
 )
 from .db import get_db, init_db
-from .crud import create_user, get_user_by_email, verify_password, list_users
+from .crud import create_user, get_user_by_email, verify_password, list_users, create_prediction, list_user_predictions
 from sqlalchemy.orm import Session
 
 # Rate limiting configuration
@@ -203,12 +204,22 @@ def _rate_limit(token: str = Depends(require_token)):
 # Accepts input data and returns model predictions ( Needs bearer token )
 @app.post("/predict", response_model=PredictionOutput, tags=["Predictions"])
 def predict(
+    request: Request,
     payload: PredictionInput,
+    db: Session = Depends(get_db),
     _: None = Depends(_rate_limit),
 ):
     try:
-        X = runtime.prepare_features(payload.dict())
+        body = payload.dict()
+        X = runtime.prepare_features(body)
         y = runtime.predict(X)
+        # Persist prediction for this user
+        try:
+            user_id = int(getattr(request.state, "user_id", "0"))
+        except Exception:
+            user_id = 0
+        if user_id:
+            create_prediction(db, user_id=user_id, payload=body, predicted_value=y)
         return {"prediction": y}
     except Exception:
         log_app.exception("predict_failed")
@@ -216,3 +227,30 @@ def predict(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"code": "prediction_error", "message": "Failed to compute prediction"},
         )
+
+
+# List current user's predictions
+@app.get("/predictions", response_model=List[PredictionRecord], tags=["Predictions"])
+def list_predictions(
+    request: Request,
+    offset: int = 0,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+    _: str = Depends(require_token),
+):
+    try:
+        user_id = int(getattr(request.state, "user_id", "0"))
+    except Exception:
+        user_id = 0
+    if not user_id:
+        raise HTTPException(status_code=401, detail={"code": "unauthorized", "message": "Missing user"})
+    rows = list_user_predictions(db, user_id=user_id, offset=offset, limit=limit)
+    return [
+        PredictionRecord(
+            id=r.id,
+            predicted_value=r.predicted_value,
+            payload=r.payload,
+            created_at=r.created_at.isoformat(),
+        )
+        for r in rows
+    ]

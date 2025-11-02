@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { apiListUsers, apiPredict, apiRequireAuth, apiClearToken, errMsg } from '../utils/api'
+import { apiListUsers, apiPredict, apiRequireAuth, apiClearToken, errMsg, apiListPredictions } from '../utils/api'
 import { HomeButton } from '../components/HomeButton'
 
 type User = { id: number; email: string }
@@ -36,6 +36,8 @@ export function Dashboard() {
   const [msgUsers, setMsgUsers] = useState('')
   const [predMsg, setPredMsg] = useState('')
   const [prediction, setPrediction] = useState<number | null>(null)
+  const [preds, setPreds] = useState<Array<{id:number; predicted_value:number; payload:any; created_at:string}>>([])
+  const [msgPreds, setMsgPreds] = useState('')
   const [form, setForm] = useState<PredictForm>(() => {
     try {
       const s = localStorage.getItem(STORAGE_KEY)
@@ -47,6 +49,7 @@ export function Dashboard() {
   useEffect(() => {
     if (!apiRequireAuth()) { nav('/login'); return }
     loadUsers()
+    loadPredictions()
   }, [])
 
   // Persist form to localStorage whenever it changes
@@ -72,6 +75,8 @@ export function Dashboard() {
       const res = await apiPredict(form)
       setPrediction(res.prediction)
       setPredMsg('')
+      // reload prediction history after success
+      loadPredictions()
     } catch (e) {
       setPredMsg('Error: ' + errMsg(e))
     }
@@ -80,6 +85,17 @@ export function Dashboard() {
   function logout() {
     apiClearToken()
     nav('/login')
+  }
+
+  async function loadPredictions() {
+    setMsgPreds('Loading predictions...')
+    try {
+      const data = await apiListPredictions(0, 20)
+      setPreds(data)
+      setMsgPreds('')
+    } catch (e) {
+      setMsgPreds('Error: ' + errMsg(e))
+    }
   }
 
   return (
@@ -118,7 +134,27 @@ export function Dashboard() {
             <div className="result-title">Predicted Price</div>
             <div className="result-value">{prediction !== null ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD'}).format(prediction) : '—'}</div>
           </div>
-          <pre className="msg">{predMsg}</pre>
+
+        </section>
+
+        <section className="panel">
+          <div className="panel-header">
+            <h2>Your Predictions</h2>
+            <div className="right"><button className="btn outline" onClick={loadPredictions}>Refresh</button></div>
+          </div>
+          <div className="table">
+            <div className="row head"><div style={{minWidth:180}}>When</div><div>Value</div><div>Summary</div></div>
+            {preds.map(p => (
+              <div key={p.id} className="row">
+                <div>{new Date(p.created_at).toLocaleString()}</div>
+                <div>{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD'}).format(p.predicted_value)}</div>
+                <div className="muted small">
+                  {p.payload?.ocean_proximity ?? '-'} • income {p.payload?.median_income ?? '-'} • rooms {p.payload?.total_rooms ?? '-'}
+                </div>
+              </div>
+            ))}
+          </div>
+
         </section>
 
         <section className="panel">
@@ -132,7 +168,7 @@ export function Dashboard() {
               <div key={u.id} className="row"><div>{u.id}</div><div>{u.email}</div></div>
             ))}
           </div>
-          <pre className="msg">{msgUsers}</pre>
+
         </section>
       </main>
     </div>

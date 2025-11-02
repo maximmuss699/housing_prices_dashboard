@@ -56,3 +56,8 @@ export function apiRequireAuth(): boolean {
   if (!apiGetToken()) return false
   return true
 }
+
+export function apiListPredictions(offset = 0, limit = 20) {
+  const q = new URLSearchParams({ offset: String(offset), limit: String(limit) })
+  return request(`/predictions?${q.toString()}`, { headers: apiAuthHeader() })
+}

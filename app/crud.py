@@ -4,7 +4,7 @@ from typing import Optional
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
-from .models import User
+from .models import User, Prediction
 
 
 logger = logging.getLogger("app.db")
@@ -58,4 +58,32 @@ def list_users(db: Session, offset: int = 0, limit: int = 100):
         q = q.limit(max(1, min(int(limit), 500)))
     rows = q.all()
     logger.debug("db_query_result", extra={"count": len(rows), "entity": "User"})
+    return rows
+
+# Create a prediction record
+def create_prediction(db: Session, user_id: int, payload: dict, predicted_value: float) -> Prediction:
+    logger.info("db_insert_prediction_start", extra={"user_id": user_id})
+    rec = Prediction(user_id=user_id, payload=payload, predicted_value=predicted_value)
+    db.add(rec)
+    db.commit()
+    db.refresh(rec)
+    logger.info("db_insert_prediction_done", extra={"prediction_id": rec.id})
+    return rec
+
+# List predictions for a user
+def list_user_predictions(db: Session, user_id: int, offset: int = 0, limit: int = 100):
+    logger.debug(
+        "db_query_list_predictions", extra={"user_id": user_id, "offset": offset, "limit": limit}
+    )
+    q = (
+        db.query(Prediction)
+        .filter(Prediction.user_id == user_id)
+        .order_by(Prediction.created_at.desc())
+    )
+    if offset:
+        q = q.offset(max(0, int(offset)))
+    if limit:
+        q = q.limit(max(1, min(int(limit), 500)))
+    rows = q.all()
+    logger.debug("db_query_result", extra={"count": len(rows), "entity": "Prediction"})
     return rows

@@ -1,3 +1,4 @@
+from typing import Any, Dict
 from pydantic import BaseModel, Field, EmailStr
 
 # Pydantic schema for input data validation
@@ -40,3 +41,10 @@ class UserCreate(BaseModel):
 class UserOut(BaseModel):
     id: int
     email: EmailStr
+
+
+class PredictionRecord(BaseModel):
+    id: int
+    predicted_value: float
+    payload: Dict[str, Any]
+    created_at: str
