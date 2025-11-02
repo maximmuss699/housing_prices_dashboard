@@ -12,6 +12,8 @@ from fastapi.exceptions import RequestValidationError
 
 from fastapi.openapi.utils import get_openapi
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 
 from .auth import require_token, issue_jwt
 from .model_runtime import runtime
@@ -58,6 +60,14 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup() -> None:
     init_db()
+    # Mount React app build if present
+    react_dist = Path(__file__).resolve().parents[1] / "frontend" / "dist"
+    if react_dist.exists():
+        try:
+            app.mount("/app", StaticFiles(directory=str(react_dist), html=True), name="app")
+            log_app.info("react_app_mounted", extra={"path": str(react_dist)})
+        except Exception:
+            log_app.exception("react_mount_failed")
 
 
 # Health "Debug" check endpoint
@@ -65,6 +75,9 @@ def on_startup() -> None:
 @app.get("/health", tags=["Health"], openapi_extra={"security": []})
 def health() -> dict:
     return {"status": "ok"}
+
+
+# Root path intentionally left to API routes/docs only
 
 
 # Request logging middleware with request ID
@@ -203,5 +216,3 @@ def predict(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"code": "prediction_error", "message": "Failed to compute prediction"},
         )
-
-
