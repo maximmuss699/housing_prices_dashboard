@@ -31,7 +31,8 @@ from .crud import create_user, get_user_by_email, verify_password, list_users, c
 from sqlalchemy.orm import Session
 
 # Rate limiting configuration
-RATE_LIMIT_MAX = int(os.getenv("RATE_LIMIT_MAX", "30"))
+# Default to 10
+RATE_LIMIT_MAX = int(os.getenv("RATE_LIMIT_MAX", "10"))
 RATE_LIMIT_WINDOW = int(os.getenv("RATE_LIMIT_WINDOW", "60"))
 
 # Initialize rate limiter
