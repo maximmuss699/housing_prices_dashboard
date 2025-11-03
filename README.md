@@ -70,3 +70,29 @@ ocean_proximity: '<1H OCEAN'
 ```
 Output 3: `192575.77355635`
 
+## What’s Been Implemented
+- API
+  - `GET /health` – quick liveness check (`{"status":"ok"}`).
+  - `POST /predict` – returns a price prediction; requires Bearer JWT.
+  - `POST /users` – sign up with email and password.
+  - `POST /login` – authenticate and receive a short‑lived JWT.
+  - `GET /predictions` – fetch your own prediction history.
+- Authentication & Rate Limiting
+  - JWT bearer auth (sign up → login → use token in `Authorization: Bearer <token>`).
+  - Fixed‑window rate limit per token; configurable via `RATE_LIMIT_MAX` and `RATE_LIMIT_WINDOW` (defaults: 30 req / 60 s).
+- Model & Features
+  - Uses the provided `model.joblib` (no retraining).
+  - Aligns request payloads to the training feature space derived from `housing.csv` (one‑hot encodes `ocean_proximity`).
+- Persistence
+  - PostgreSQL database via `DATABASE_URL` (see `docker-compose.yml` for a local Postgres service).
+  - Stores users and each prediction with original payload and timestamp.
+- Tooling & Run
+  - Dockerfile and `docker-compose.yml` for local development (API on `:8000`, optional frontend dev server on `:3000`).
+  - Pytest covers health, auth requirement, and the first sample prediction value.
+  - Minimal React frontend (register, login, dashboard) is served from `/app` when a production build exists.
+
+Quick start (compose):
+```
+docker-compose up --build
+# API: http://localhost:8000  |  Web (dev): http://localhost:3000
+```

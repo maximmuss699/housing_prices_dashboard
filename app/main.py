@@ -72,7 +72,7 @@ def on_startup() -> None:
 
 
 # Health "Debug" check endpoint
-# Used by orchestration tools to verify service is running
+
 @app.get("/health", tags=["Health"], openapi_extra={"security": []})
 def health() -> dict:
     return {"status": "ok"}
