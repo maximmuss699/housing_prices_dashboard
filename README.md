@@ -79,7 +79,7 @@ Output 3: `192575.77355635`
   - `GET /predictions` – fetch your own prediction history.
 - Authentication & Rate Limiting
   - JWT bearer auth (sign up → login → use token in `Authorization: Bearer <token>`).
-  - Fixed‑window rate limit per token; configurable via `RATE_LIMIT_MAX` and `RATE_LIMIT_WINDOW` (defaults: 30 req / 60 s).
+  - Fixed‑window rate limit per token; configurable via `RATE_LIMIT_MAX` and `RATE_LIMIT_WINDOW` (defaults: 10 req / 60 s).
 - Model & Features
   - Uses the provided `model.joblib` (no retraining).
   - Aligns request payloads to the training feature space derived from `housing.csv` (one‑hot encodes `ocean_proximity`).
