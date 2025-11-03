@@ -66,6 +66,7 @@ def test_predict_sample_1(client: TestClient):
 
 
 def test_rate_limit_predict(client):
+    limit = int(os.getenv("RATE_LIMIT_MAX", "10"))
     token = _signup_and_login(client, "limit@example.com", "StrongPass123")
     headers = {"Authorization": f"Bearer {token}"}
     payload = {
@@ -81,7 +82,7 @@ def test_rate_limit_predict(client):
     }
 
     # 10 requests are ok
-    for _ in range(10):
+    for _ in range(limit):
         resp = client.post("/predict", headers=headers, json=payload)
         assert resp.status_code == 200
 
