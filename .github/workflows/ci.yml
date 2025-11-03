@@ -57,6 +57,7 @@ jobs:
         env:
           JWT_SECRETS: testsecret
           DATABASE_URL: postgresql+psycopg2://app:app@localhost:5432/appdb
+          RATE_LIMIT_MAX: 10
           PYTHONPATH: .
         run: pytest -q
 
