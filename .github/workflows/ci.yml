@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  backend-tests:
+    name: Backend – pytest (Postgres)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: appdb
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+        options: >-
+          --health-cmd "pg_isready -U app -d appdb"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5432
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+          cache: 'pip'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Wait for DB ready
+        env:
+          DATABASE_URL: postgresql+psycopg2://app:app@localhost:${{ job.services.postgres.ports[5432] }}/appdb
+        run: |
+          python - << 'PY'
+          import os, time
+          from sqlalchemy import create_engine
+          url = os.environ['DATABASE_URL']
+          for i in range(30):
+              try:
+                  create_engine(url, pool_pre_ping=True).connect()
+                  print('DB ready')
+                  break
+              except Exception as e:
+                  print('Waiting for DB...', e)
+                  time.sleep(2)
+          else:
+              raise SystemExit('DB not ready in time')
+          PY
+      - name: Run tests
+        env:
+          JWT_SECRETS: testsecret
+          DATABASE_URL: postgresql+psycopg2://app:app@localhost:${{ job.services.postgres.ports[5432] }}/appdb
+          PYTHONPATH: .
+        run: pytest -q
+
+  frontend-build:
+    name: Frontend – typecheck & build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install deps
+        run: npm ci
+      - name: Typecheck
+        run: npx tsc -b --pretty false
+      - name: Build
+        env:
+          # Configure API base for production builds if desired
+          VITE_API_URL: http://localhost:8000
+        run: npm run build --silent
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
