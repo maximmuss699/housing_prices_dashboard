@@ -65,11 +65,7 @@ def test_predict_sample_1(client: TestClient):
 
 
 
-def test_rate_limit_predict(client, monkeypatch):
-    # Temporarily override rate limit settings
-    monkeypatch.setenv("RATE_LIMIT_MAX", "2")
-    monkeypatch.setenv("RATE_LIMIT_WINDOW", "60")
-
+def test_rate_limit_predict(client):
     token = _signup_and_login(client, "limit@example.com", "StrongPass123")
     headers = {"Authorization": f"Bearer {token}"}
     payload = {
@@ -84,25 +80,24 @@ def test_rate_limit_predict(client, monkeypatch):
         "ocean_proximity": "NEAR OCEAN",
     }
 
-    # First two requests are OK
-    assert client.post("/predict", headers=headers, json=payload).status_code == 200
-    assert client.post("/predict", headers=headers, json=payload).status_code == 200
+    # 10 requests are ok
+    for _ in range(10):
+        resp = client.post("/predict", headers=headers, json=payload)
+        assert resp.status_code == 200
 
-    # Third request hits the limit
+    # 11.th request should be rate-limited
     r = client.post("/predict", headers=headers, json=payload)
-    assert r.status_code in (429, 403)
+    assert r.status_code == 429
     data = r.json()
     assert any(k in data for k in ("detail", "error", "message"))
 
-
+#  Login with incorrect password must fail
 def test_login_nonexistent_user(client):
-    """Login with an unregistered email should fail with 401"""
     r = client.post("/login", json={"email": "noone@example.com", "password": "DoesNotMatter"})
     assert r.status_code == 401
 
-
+# Predict endpoint without token must return 401
 def test_predict_unauthorized_without_token(client):
-    """Predict endpoint must return 401 when token missing"""
     payload = {
         "longitude": -122.64,
         "latitude": 38.01,
