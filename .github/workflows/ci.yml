@@ -17,6 +17,8 @@ jobs:
           POSTGRES_DB: appdb
           POSTGRES_USER: app
           POSTGRES_PASSWORD: app
+        ports:
+          - 5432:5432
         options: >-
           --health-cmd "pg_isready -U app -d appdb"
           --health-interval 10s
@@ -34,7 +36,7 @@ jobs:
           pip install -r requirements.txt
       - name: Wait for DB ready
         env:
-          DATABASE_URL: postgresql+psycopg2://app:app@localhost:${{ job.services.postgres.ports[5432] }}/appdb
+          DATABASE_URL: postgresql+psycopg2://app:app@localhost:5432/appdb
         run: |
           python - << 'PY'
           import os, time
@@ -54,7 +56,7 @@ jobs:
       - name: Run tests
         env:
           JWT_SECRETS: testsecret
-          DATABASE_URL: postgresql+psycopg2://app:app@localhost:${{ job.services.postgres.ports[5432] }}/appdb
+          DATABASE_URL: postgresql+psycopg2://app:app@localhost:5432/appdb
           PYTHONPATH: .
         run: pytest -q
 
@@ -74,6 +76,7 @@ jobs:
       - name: Install deps
         env:
           ROLLUP_USE_JS: "true"
+          NPM_CONFIG_OPTIONAL: "false"
         run: npm ci
       - name: Typecheck
         run: npx tsc -b --pretty false
@@ -81,6 +84,7 @@ jobs:
         env:
           VITE_API_URL: http://localhost:8000
           ROLLUP_USE_JS: "true"
+          NPM_CONFIG_OPTIONAL: "false"
         run: npm run build --silent
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
