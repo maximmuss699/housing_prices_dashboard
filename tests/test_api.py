@@ -1,16 +1,28 @@
 import os
+import pytest
 
 # Set a predictable JWT secret for token generation/verification in local/dev
 os.environ.setdefault("JWT_SECRETS", "testsecret")
 
 from fastapi.testclient import TestClient
 from app.main import app
-
-# Single TestClient instance for simple tests
-client = TestClient(app)
+from app.db import init_db
 
 
-def _signup_and_login(email: str, password: str) -> str:
+# --- Pytest fixtures ---
+@pytest.fixture(scope="session", autouse=True)
+def _ensure_db():
+    # Ensure database tables exist before running tests
+    init_db()
+
+@pytest.fixture(scope="session")
+def client():
+    # Use context manager so FastAPI lifespan/startup events run
+    with TestClient(app) as c:
+        yield c
+
+
+def _signup_and_login(client: TestClient, email: str, password: str) -> str:
     r = client.post("/users", json={"email": email, "password": password})
     # Allow 201 (created) or 409 if test reruns
     assert r.status_code in (201, 409)
@@ -19,19 +31,19 @@ def _signup_and_login(email: str, password: str) -> str:
     return r.json()["access_token"]
 
 
-def test_health():
+def test_health(client: TestClient):
     r = client.get("/health")
     assert r.status_code == 200
     assert r.json()["status"] == "ok"
 
 
-def test_auth_required():
+def test_auth_required(client: TestClient):
     r = client.post("/predict", json={})
     assert r.status_code == 401
 
 
-def test_predict_sample_1():
-    token = _signup_and_login("user@example.com", "StrongPass123")
+def test_predict_sample_1(client: TestClient):
+    token = _signup_and_login(client, "user@example.com", "StrongPass123")
     headers = {"Authorization": f"Bearer {token}"}
     payload = {
         "longitude": -122.64,
