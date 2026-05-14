@@ -1,4 +1,4 @@
-# Backend Developer assignment
+# Pricing dashboard for data science team with FastAPI
 
 You are given this repository from the data science team. It contains a Python script that generates a model, stores it in a file and then uses it to generate a house price prediction based on the property parameters.
 
